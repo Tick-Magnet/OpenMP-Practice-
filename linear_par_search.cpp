@@ -3,6 +3,8 @@
 #include <sys/time.h>
 #include <unistd.h> 
 #include <omp.h>
+#include <vector>
+
 
 //Compilation Syntax: g++ linear_par_search.cpp -o linear_par_search -fopenmp
 using namespace std;
@@ -67,8 +69,9 @@ int main(int argc, char* argv[]) {
 
     // Set number of threads
     omp_set_num_threads(THREAD_COUNT);
+    vector<long> elapsedTimes;
 
-    #pragma omp parallel shared(TOTAL_TIME) 
+    #pragma omp parallel shared(TOTAL_TIME, elapsedTimes) 
 
     #pragma omp for schedule(static)
     for (int t = 0; t < MAX_TRIALS; t++) {
@@ -76,13 +79,28 @@ int main(int argc, char* argv[]) {
         linearSearch(array, SIZE, values, VALUE_LENGTH);
         gettimeofday(&t1, 0);
         long elapsed = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
-        
-        printf("Thread_ID: %d - Run Time: %d\n", omp_get_thread_num(), elapsed);
+
+        printf("Thread_ID: %d - Run Time: %ld\n", omp_get_thread_num(), elapsed);
         #pragma omp flush 
         
-        #pragma omp atomic
-        TOTAL_TIME += elapsed;
+        #pragma omp critical 
+        {
+            TOTAL_TIME += elapsed;
+            elapsedTimes.push_back(elapsed);
+        }
+
+
+
+
     }
+
+    long totalElapsedTime = 0;
+    for (long time : elapsedTimes) {
+        totalElapsedTime += time;
+    }
+    double averageTime = totalElapsedTime / static_cast<double>(MAX_TRIALS);
+
+    cout << "Average Time: " << averageTime << " microseconds" << endl;
 
     cout << "Total Time: " << TOTAL_TIME / 60000000.0 << " minutes" << endl;
 
